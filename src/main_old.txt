@@ -1,0 +1,68 @@
+#include <Arduino.h>
+#include <Adafruit_Sensor.h>
+#include "DHT.h"
+#define DHTTYPE DHT11
+#define dht_dpin 0
+
+const int PIN_INPUT = A0;
+const int PIN_OUTPUT = 3;
+double kp = 1;
+double ki = 1;
+double kd = 6;
+double Input;
+double Output;
+double Punto_seteo;
+double lapso_tiempo;
+double error;
+double lastError;
+double cumError;
+double rateError;
+
+unsigned long Tiempo_actual;
+unsigned long Tiempo_anterior;
+
+DHT dht(dht_dpin, DHTTYPE);
+
+double computePID(double Input)
+{
+  Tiempo_actual = millis();                                        // obtener el tiempo actual
+  lapso_tiempo = (double)(Tiempo_actual - Tiempo_anterior) / 1000; // calcular el segmento de tiempo transcurrido
+  Serial.print("Lapso de tiempo = ");
+  Serial.print(lapso_tiempo);
+  Serial.println(" Segundos");
+  Serial.print("Temperatura de entrada = ");
+  Serial.println(Input);
+  Serial.print("Temperatura requerida  = ");
+  Serial.println(Punto_seteo);
+  error = Punto_seteo - Input; // determinar el error entre la consigna y la medición
+  Serial.print("Diferencia temperatura = ");
+  Serial.println(error);
+  cumError += error * lapso_tiempo; // calcular la integral del error
+  Serial.print("Error Acumulado = ");
+  Serial.println(cumError);
+  rateError = (error - lastError) / lapso_tiempo;           // calcular la derivada del error
+  int output = kp * error + ki * cumError + kd * rateError; // calcular la salida del PID
+  lastError = error;                                        // almacenar error anterior
+  Tiempo_anterior = Tiempo_actual;                          // almacenar el tiempo anterior
+  Serial.print("Control de PWM = ");
+  Serial.println(Output);
+  return output;
+}
+
+void setup()
+{
+  dht.begin();
+  Serial.begin(9600);
+  delay(100);
+  Punto_seteo = 27;
+}
+
+void loop()
+{
+  Input = dht.readTemperature();
+  delay(100);
+  Output = computePID(Input);
+  analogWrite(3, Output);
+  Serial.println("---------------------------------------- ");
+  delay(8000);
+}
